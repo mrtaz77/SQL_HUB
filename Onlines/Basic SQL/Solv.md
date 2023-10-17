@@ -282,9 +282,9 @@ last name; i.e. if first name is Lionel and last name is Messi then fullname is 
 yearly_income (sorted high to low) of the employees whose last name starts with 'M' or 'm'.  
 
 Where, yearly_income is calculated as follows:  
- 
-      yearly_salary + yearly_salary * commision_pct 
- 
+
+_yearly_salary + yearly_salary * commision_pct_ 
+
 Note that, there should be no null value in the output.
 ```sql
 SELECT
