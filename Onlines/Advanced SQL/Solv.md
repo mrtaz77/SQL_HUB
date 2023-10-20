@@ -27,21 +27,189 @@ or GROUP_BY in the main query.
 output according to year and semester.
 
 ```sql
-
+SELECT 
+		TK1.SEMESTER,
+		TK1.YEAR,
+		(SELECT TITLE FROM COURSE WHERE COURSE.COURSE_ID=TK1.COURSE_ID) COURSE_TITLE,
+		COUNT(*) ENROLLMENT_COUNT 
+	FROM
+		TAKES TK1
+	GROUP BY
+		TK1.SEMESTER,
+		TK1.YEAR,
+		TK1.COURSE_ID
+	HAVING
+		COUNT(*) >= ALL(
+				SELECT
+					COUNT(*) NUM 
+					FROM
+						TAKES TK2
+					WHERE
+					TK2.YEAR=TK1.YEAR AND
+					TK2.SEMESTER=TK1.SEMESTER
+					GROUP BY
+					TK2.SEMESTER,
+					TK2.YEAR,
+					TK2.COURSE_ID
+			)
+		ORDER BY
+		TK1.YEAR,
+		TK1.SEMESTER;
 ```
 
 
 2. Find the distinct courses taught by instructors with at least 100 students receiving a
 grade of *A+*. You cannot use join in the main query. You must use SUB-QUERY in
 the where clause. You can use join in the sub-queries.
+
+```sql
+SELECT DISTINCT
+	( COURSE_ID || ' ' || ( SELECT TITLE FROM COURSE WHERE TEACHES.COURSE_ID = COURSE.COURSE_ID ) ) COURSE_TITLE 
+FROM
+	TEACHES 
+WHERE
+	( SELECT COUNT( * ) FROM TAKES WHERE COURSE_ID = TEACHES.COURSE_ID AND ( GRADE ) = 'A+' ) >= 50 
+ORDER BY
+	COURSE_TITLE;
+```
 3. Find the distinct course IDs and titles that appear in either the "Comp. Sci."
 department or have a prerequisite in the "Math" department. You must use set
 operations. You cannot use any join operations. Order the output according to the
 department name.
+
+```sql
+SELECT 
+	*
+FROM 
+(SELECT
+	COURSE_ID,
+	TITLE,
+	DEPT_NAME 
+FROM
+	COURSE 
+WHERE
+	DEPT_NAME = 'Comp. Sci.'
+UNION
+SELECT
+	C1.COURSE_ID,
+	C1.TITLE,
+	C1.DEPT_NAME 
+FROM
+	COURSE C1
+WHERE EXISTS
+	(
+			SELECT 
+				PREREQ_ID
+			FROM
+				PREREQ
+			WHERE 
+				COURSE_ID = C1.COURSE_ID
+			AND 
+				PREREQ_ID IN (
+					SELECT 
+						COURSE_ID
+					FROM 
+						COURSE
+					WHERE 
+						DEPT_NAME = 'Math'
+				)
+	))
+ORDER BY
+	DEPT_NAME,COURSE_ID ;
+```
+
 4. Find the courses that have conflicting time slots (overlapping schedules).
+
+```sql
+SELECT 
+	S1.COURSE_ID "COURSE_ID",
+	(SELECT TITLE FROM COURSE WHERE COURSE_ID = S1.COURSE_ID) COURSE_TITLE,
+	S2.COURSE_ID "CONFLICTING_COURSE_ID",
+	(SELECT TITLE FROM COURSE WHERE COURSE_ID = S2.COURSE_ID) CONFLICTING_COURSE
+FROM
+	SECTION S1 ,
+	SECTION S2 , 
+(SELECT 
+	T1.TIME_SLOT_ID "T1_ID", 
+	T1.END_HR "T1_END_HR",
+	T1.END_MIN "T1_END_MIN" ,
+	T2.TIME_SLOT_ID "T2_ID",
+	T2.START_HR "T2_START_HR" ,
+	T2.START_MIN "T2_START_MIN"
+FROM 
+	TIME_SLOT T1 ,
+	TIME_SLOT T2 
+WHERE 
+	T1.DAY = T2.DAY 
+AND 
+	T1.TIME_SLOT_ID <> T2.TIME_SLOT_ID
+AND 
+	T1.START_HR*60 + T1.START_MIN  <= T2.START_HR*60 + T2.START_MIN
+AND 
+	T1.END_HR*60 + T1.END_MIN > T2.START_HR*60 + T2.START_MIN) T
+	WHERE S1.COURSE_ID <> S2.COURSE_ID 
+	AND S1.TIME_SLOT_ID = T.T2_ID
+	AND S2.TIME_SLOT_ID = T.T1_ID
+	AND S1.SEC_ID || S1.SEMESTER || S1.YEAR = S2.SEC_ID || S2.SEMESTER || S2.YEAR
+ORDER BY 
+	S1.COURSE_ID
+```
+
 5. Find the instructors who have taught courses with enrollment counts higher than the
 average enrollment count of all courses in each semester. Your column names are
 expected to match the provided output’s column names.
+
+```sql
+SELECT 
+    (
+        SELECT 
+        NAME
+        FROM 
+        INSTRUCTOR
+        WHERE 
+        ID = (
+            SELECT
+            TC.ID
+            FROM
+            TEACHES TC
+            WHERE
+            TC.COURSE_ID = TK1.COURSE_ID AND
+            TC.SEMESTER = TK1.SEMESTER AND
+            TC.YEAR = TK1.YEAR 
+        )
+    ) INSTRUCTOR_NAME,
+    COUNT(*) ENROLLMENT_COUNT,
+    TK1.SEMESTER,
+    TK1.YEAR,
+    (SELECT TITLE FROM COURSE WHERE COURSE.COURSE_ID=TK1.COURSE_ID) COURSE_TITLE
+FROM
+    TAKES TK1
+GROUP BY
+    TK1.SEMESTER,
+    TK1.YEAR,
+    TK1.COURSE_ID
+HAVING
+    COUNT(*) > (
+    SELECT AVG(NUM)
+    FROM
+        (
+            SELECT
+                COUNT(*) NUM 
+            FROM
+                TAKES TK2
+            WHERE
+                TK2.YEAR=TK1.YEAR AND
+                TK2.SEMESTER=TK1.SEMESTER
+            GROUP BY
+                TK2.SEMESTER,
+                TK2.YEAR,
+                TK2.COURSE_ID
+            )
+        )
+    ORDER BY
+    TK1.YEAR,
+    TK1.SEMESTER;
+```
 
 
 ## B1
