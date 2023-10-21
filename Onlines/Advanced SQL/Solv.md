@@ -9,18 +9,158 @@
 other instructors who have at least one building in common where they teach,
 along with the number of such building(s), and sort by the number of instructors.
 You cannot use JOIN in the main query.
+
+```sql
+SELECT DISTINCT
+	TC1.ID,
+	( SELECT NAME FROM INSTRUCTOR WHERE ID = TC1.ID ) NAME,
+	( SELECT DEPT_NAME FROM INSTRUCTOR WHERE ID = TC1.ID ) DEPT_NAME,
+	(
+	SELECT
+		COUNT( * ) 
+	FROM
+		(
+		SELECT DISTINCT
+			TC2.ID 
+		FROM
+			TEACHES TC2 
+		WHERE
+			TC2.ID <> TC1.ID 
+			AND EXISTS(
+			( SELECT DISTINCT BUILDING FROM TEACHES TC3 NATURAL JOIN SECTION WHERE TC3.ID = TC2.ID ) INTERSECT
+			( SELECT DISTINCT BUILDING FROM TEACHES TC4 NATURAL JOIN SECTION WHERE TC4.ID = TC1.ID ) 
+			) 
+		) 
+	) NUM_INSTRUCTOR,
+	(
+	SELECT
+		COUNT( * ) 
+	FROM
+		(
+			( SELECT DISTINCT BUILDING FROM TEACHES TC2 NATURAL JOIN SECTION WHERE TC2.ID <> TC1.ID ) INTERSECT
+			( SELECT DISTINCT BUILDING FROM TEACHES TC2 NATURAL JOIN SECTION WHERE TC2.ID = TC1.ID ) 
+		) 
+	) NUM_BUILDING 
+FROM
+	TEACHES TC1
+	ORDER BY NUM_INSTRUCTOR DESC,NUM_BUILDING;
+```
+
 2. Find the advisors who advise the highest number of students along with the total
 credits they oer. You must write at least one subquery to do this.
+
+```sql
+SELECT
+	I.DEPT_NAME,
+	I.NAME INSTRUCTOR_NAME,
+	( SELECT COUNT( * ) FROM ADVISOR WHERE ADVISOR.I_ID = I.ID ) NUM_STUDENTS,
+	C.TOT_CRED
+FROM
+	INSTRUCTOR I LEFT OUTER JOIN (
+	SELECT TC.ID,SUM(CREDITS) TOT_CRED
+	FROM TEACHES TC NATURAL JOIN COURSE
+	GROUP BY TC.ID
+	) C ON (I.ID = C.ID) 
+WHERE
+	( SELECT COUNT( * ) FROM ADVISOR WHERE I_ID = I.ID ) >= ALL ( SELECT COUNT( S_ID ) FROM ADVISOR GROUP BY I_ID )
+	ORDER BY INSTRUCTOR_NAME ;
+```
+
+
 3. Retrieve the students who have taken more non-departmental courses than
 departmental ones. You cannot use JOIN in the main query.
+(The output may not match the result in pdf due to being unordered in the specification)
+
+```sql
+SELECT
+			S.ID,
+			S.NAME,
+			S.DEPT_NAME
+		FROM	
+			STUDENT S 
+	WHERE
+	(
+		SELECT COUNT(TK1.COURSE_ID)
+		FROM TAKES TK1 
+		WHERE TK1.ID=S.ID
+		AND TK1.COURSE_ID IN(
+		SELECT COURSE_ID
+		FROM COURSE
+		WHERE DEPT_NAME = S.DEPT_NAME
+		)
+	)
+ < (
+ SELECT COUNT(TK1.COURSE_ID)
+		FROM TAKES TK1 
+		WHERE TK1.ID=S.ID
+		AND TK1.COURSE_ID IN(
+		SELECT COURSE_ID
+		FROM COURSE
+		WHERE DEPT_NAME <> S.DEPT_NAME
+		)
+ )
+ ORDER BY TO_NUMBER(S.ID);
+```
+
 4. For each department, find out the average number of credit hours spent by its
 students for its departmental courses. The average should be calculated by
 dividing the total number of credits (departmental courses only) taken by the
 students of that department divided by the number of students who have taken
 departmental courses. You cannot use JOIN in the main query.
+
+```sql
+SELECT
+	DEPT_NAME,
+	ROUND(SUM(CREDITS)/COUNT(ID),2) TOT_CREDIT_HOURS
+FROM
+(SELECT
+	(SELECT C.DEPT_NAME FROM COURSE C WHERE C.COURSE_ID = TK.COURSE_ID ) DEPT_NAME ,
+	COURSE_ID,
+	ID,
+	(SELECT C.CREDITS FROM COURSE C WHERE C.COURSE_ID = TK.COURSE_ID) CREDITS
+FROM 
+	"TAKES" TK
+WHERE 
+	(SELECT C.DEPT_NAME FROM COURSE C WHERE C.COURSE_ID = TK.COURSE_ID ) = (SELECT S.DEPT_NAME FROM STUDENT S WHERE S.ID = TK.ID )
+)
+GROUP BY
+DEPT_NAME
+ORDER BY
+	DEPT_NAME;
+```
+
 5. Retrieve the students who have taken at least two courses where one is covered by their 
 advisors and another is oered by some other teacher of their own department. You cannot use JOIN 
 or GROUP_BY in the main query.
+(The output may not match the result in pdf due to being unordered in the specification)
+
+```sql
+SELECT DISTINCT
+		TK.ID,
+		(SELECT NAME FROM STUDENT WHERE ID=TK.ID) NAME,
+		(SELECT DEPT_NAME FROM STUDENT WHERE ID=TK.ID) DEPT_NAME
+	FROM
+		TAKES TK
+	WHERE
+	EXISTS(
+	SELECT
+	TK2.COURSE_ID
+	FROM
+	TAKES TK2 
+	WHERE TK.ID=TK2.ID AND
+	TK2.COURSE_ID IN (SELECT TC1.COURSE_ID FROM TEACHES TC1 WHERE TC1.ID=(SELECT I_ID FROM ADVISOR WHERE S_ID=TK.ID))
+	) AND
+	EXISTS(
+	SELECT
+	TK3.COURSE_ID
+	FROM
+	TAKES TK3 
+	WHERE TK.ID=TK3.ID AND
+	TK3.COURSE_ID IN (SELECT TC2.COURSE_ID FROM TEACHES TC2 WHERE TC2.ID IN (SELECT ID FROM INSTRUCTOR WHERE DEPT_NAME=(SELECT DEPT_NAME FROM STUDENT WHERE ID=TK.ID)) AND ID <> (SELECT I_ID FROM ADVISOR WHERE S_ID=TK.ID))
+	)
+	ORDER BY
+	NAME;
+```
 
 ## A2_B2
 1. Find the courses that have the highest enrollment count in each semester. Order the
