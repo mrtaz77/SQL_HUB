@@ -12,14 +12,68 @@
     
     - For all courses offered by departments in the Lambeau building, find whether they have more prerequisites than any course offered by the departments in the Bronfman building and print the information using a PL/SQL anonymous block. Order your output by the course titles as shown below. __You cannot use the INTO or WHILE keywords__.
 
+```sql
+-- function
 
+CREATE OR REPLACE FUNCTION COMPARE_COURSE(CID1 IN VARCHAR2,CID2 IN VARCHAR2) RETURN VARCHAR2 IS 
+C1NUM NUMBER;
+C2NUM NUMBER;
+BEGIN
+SELECT COUNT(COURSE_ID) INTO C1NUM 
+FROM PREREQ
+WHERE PREREQ_ID = CID1;
+
+SELECT COUNT(COURSE_ID) INTO C2NUM 
+FROM PREREQ
+WHERE PREREQ_ID = CID2;
+IF C1NUM > C2NUM THEN 
+	RETURN ('TRUE');
+ELSE 
+	RETURN ('FALSE');
+END IF;
+EXCEPTION 
+	WHEN NO_DATA_FOUND THEN
+		RETURN ('No rows found.');
+
+	WHEN TOO_MANY_ROWS THEN
+	RETURN( 'More than one row found.' );
+
+	WHEN OTHERS THEN
+	RETURN( 'Some unknown error occurred.');
+END;
+/
+
+-- plSql block
+DECLARE
+BEGIN 
+FOR L IN (
+	SELECT COURSE_ID,TITLE,BUILDING
+	FROM COURSE NATURAL JOIN DEPARTMENT
+	WHERE BUILDING = 'Lambeau'
+	ORDER BY TITLE
+)
+LOOP 
+FOR B IN (
+	SELECT COURSE_ID,TITLE,BUILDING
+	FROM COURSE NATURAL JOIN DEPARTMENT
+	WHERE BUILDING = 'Bronfman'
+	ORDER BY TITLE
+) 
+LOOP 
+IF COMPARE_COURSE(L.COURSE_ID,B.COURSE_ID) = 'TRUE' THEN 
+	DBMS_OUTPUT.PUT_LINE(L.TITLE||' needs more prerequisites than '||B.TITLE);
+END IF;
+END LOOP;
+END LOOP;
+END;
+/
+```
 
 2. Write a PL/SQL procedure that takes the Student ID and input and calculates
 the CGPA per every semester (e.g., Fall 2003). If the CGPA chronologically
 increases (let staying the same be considered an increase) in every semester,
-print CGPA is always increasing. If the CGPA chronologically decreases in
-every semester, print CGPA is always decreasing. Otherwise print CGPA is
-following a zig-zag pattern. You can assume the input student ID will be
+print __CGPA is always increasing__. If the CGPA chronologically decreases in
+every semester, print __CGPA is always decreasing__. Otherwise print __CGPA is following a zig-zag pattern__. You can assume the input student ID will be
 correct.
 
 For *CGPA* calculation, you can use the following functions:
@@ -67,8 +121,86 @@ end;
 /
 ```
 
+At first , modify the find_cgpa function to calculate the cgpa of a student in a particular semester of an year.
 
-
+```sql
+CREATE OR REPLACE FUNCTION FIND_CGPA_IN_SEMESTER_OF_YEAR(S_ID IN NUMBER,SEM IN VARCHAR2,Y IN NUMBER) RETURN FLOAT IS 
+	CGPA FLOAT;
+BEGIN
+SELECT 
+	ROUND(SUM(GP) / SUM(CREDITS), 4) INTO CGPA 
+FROM
+(
+	SELECT 
+		MAX(GRADE_TO_POINT(GRADE) * CREDITS) AS GP, 
+		CREDITS 
+	FROM 
+		TAKES 
+	INNER JOIN COURSE C2 
+	ON TAKES.COURSE_ID = C2.COURSE_ID 
+WHERE ID = S_ID
+AND TAKES.SEMESTER = SEM AND TAKES.YEAR = Y
+GROUP BY ID, C2.COURSE_ID, CREDITS);
+-- DBMS_OUTPUT.PUT_LINE('CGPA OF ID ' || S_ID || ' IS ' || CGPA); 
+RETURN CGPA;
+END;
+/
+```
+The procedure : 
+```sql
+CREATE OR REPLACE PROCEDURE CGPA_TREND(SID IN VARCHAR2) IS 
+		PREV_CGPA NUMBER(10,4);
+		CURR_CGPA NUMBER(10,4);
+		NUM NUMBER(10);
+		FLAG NUMBER(10);
+BEGIN 
+		NUM := 0;
+		FLAG := 1;
+FOR R IN (
+SELECT DISTINCT
+	SEMESTER,YEAR
+FROM 
+	TAKES 
+WHERE
+	ID = SID 
+ORDER BY
+	YEAR,SEMESTER DESC
+)
+LOOP
+-- 	DBMS_OUTPUT.PUT_LINE(SID||' '||R.SEMESTER||' '||R.YEAR||' '||FIND_CGPA_IN_SEMESTER_OF_YEAR(SID,R.SEMESTER,R.YEAR));
+	IF NUM = 0 THEN
+		PREV_CGPA :=  FIND_CGPA_IN_SEMESTER_OF_YEAR(SID,R.SEMESTER,R.YEAR);
+	ELSIF NUM = 1 THEN 
+		CURR_CGPA :=  FIND_CGPA_IN_SEMESTER_OF_YEAR(SID,R.SEMESTER,R.YEAR);
+		IF CURR_CGPA >= PREV_CGPA THEN 
+			FLAG := 1;
+		ELSE 
+			FLAG := 2;
+		END IF;
+		PREV_CGPA := CURR_CGPA;
+	ELSE 
+		CURR_CGPA :=  FIND_CGPA_IN_SEMESTER_OF_YEAR(SID,R.SEMESTER,R.YEAR);
+		IF CURR_CGPA > PREV_CGPA AND FLAG = 2 THEN 
+			FLAG := 3;
+			EXIT;
+		ELSIF CURR_CGPA < PREV_CGPA AND FLAG = 1 THEN  
+			FLAG := 3;
+			EXIT;
+		END IF;
+		PREV_CGPA := CURR_CGPA;
+	END IF;
+	NUM := NUM + 1 ;
+END LOOP;
+IF FLAG = 1 THEN
+	DBMS_OUTPUT.PUT_LINE('CGPA is always increasing');
+ELSIF FLAG = 2 THEN 
+	DBMS_OUTPUT.PUT_LINE('CGPA is always decreasing');
+ELSE 
+	DBMS_OUTPUT.PUT_LINE('CGPA is following a zig-zag pattern');
+END IF;
+END;
+/
+```
 
 
 ## A2_B2    
@@ -226,16 +358,15 @@ SELECT
 	ROUND(SUM(CREDITS*GRADE)/SUM(CREDITS),2) CGPA
 FROM
 (
-SELECT 
-	ID,
-	(SELECT CREDITS FROM COURSE WHERE COURSE.COURSE_ID = "TAKES".COURSE_ID) CREDITS,
-	MAX(LETTER_TO_POINT(GRADE)) GRADE 
-FROM 
-	"TAKES"
-GROUP BY
-	ID,COURSE_ID
-ORDER BY
-	ID,COURSE_ID)
+	SELECT 
+		ID,
+		(SELECT CREDITS FROM COURSE WHERE COURSE.COURSE_ID = "TAKES".COURSE_ID) CREDITS,
+		MAX(LETTER_TO_POINT(GRADE)) GRADE 
+	FROM 
+		"TAKES"
+	GROUP BY
+		ID,COURSE_ID
+)
 GROUP BY
 	ID
 ORDER BY
