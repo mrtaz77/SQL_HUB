@@ -440,24 +440,24 @@ IS
 	NEWSAL INSTRUCTOR.SALARY%TYPE;
 BEGIN
 		FOR R IN (
-		SELECT
-			I.ID,
-			I.NAME,
-			I.SALARY,
-			C.SC 
-		FROM
-			INSTRUCTOR I,
-			(
 			SELECT
-				TC.ID ID,
-				AVG( C.CREDITS ) SC 
+				I.ID,
+				I.NAME,
+				I.SALARY,
+				C.SC 
 			FROM
-				TEACHES TC,
-				COURSE C 
-			WHERE
-				TC.COURSE_ID = C.COURSE_ID 
-			GROUP BY
-				TC.ID 
+				INSTRUCTOR I,
+				(
+				SELECT
+					TC.ID ID,
+					AVG( C.CREDITS ) SC 
+				FROM
+					TEACHES TC,
+					COURSE C 
+				WHERE
+					TC.COURSE_ID = C.COURSE_ID 
+				GROUP BY
+					TC.ID 
 			) C 
 		WHERE
 			I.ID = C.ID 
