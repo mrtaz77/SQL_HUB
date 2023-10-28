@@ -24,3 +24,12 @@ FROM all_tables
 WHERE owner = 'UNIVERSITY';
 ```
 
+4. Show the last name and salary of all employees in taka (show thousands,hundreds)
+```sql
+SELECT
+	LAST_NAME,
+	TRUNC( SALARY / 1000, 0 ) || ' thousands ' || TRUNC( MOD( SALARY, 1000 ) / 100, 0 ) || ' hundreds ' || MOD( SALARY, 100 ) || ' taka only' "Salary In Taka" 
+FROM
+	EMPLOYEES;
+```
+
