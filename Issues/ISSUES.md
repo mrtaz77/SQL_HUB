@@ -1,4 +1,6 @@
-
+# Oracle, Navicat, and SQLPlus Troubleshooting Guide
+- [ORA-12541 TNS:No listener](#ora-12541-tnsno-listener)
+- [ORA-01109: database not open](#ora-01109--database-not-open)
 
 ## ORA-12541 TNS:No listener
 ![issue](/Issues/12541_TNS_No_listener.png)
@@ -48,3 +50,25 @@ Perhaps one of the most issues I faced.
     No need to panic. Just click ok.
 
 6. Enter navicat and open the connection. It should be working now.
+
+
+## ORA-01109 : database not open
+![issue](/Issues/01109_Database_Not_Open.png)
+
+University schema was opened using a pluggable database.So, while opening the connection in navicat where you originally had the university schema may show the above error.
+
+### Remedy
+1. Open Sql plus . Enter username `sys as sysdba` . No password needed , so just press enter while prompted for it.
+
+2. We need to open the pdb. So type :
+    ```cmd
+    alter pluggable database orclpdb open;
+    ```
+    The following msg should be displayed. 
+    ```cmd
+    Pluggable database altered.
+    ```
+
+3. That's it. Now enter navicat and open the connection containing the the schema.
+
+4. If your problem is not solved , then check the [link](https://logic.edchen.org/how-to-resolve-ora-01109-database-not-open/).
