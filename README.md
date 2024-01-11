@@ -6,9 +6,10 @@ Welcome to SQL HUB. A collection of sql queries,functions,procedures from the da
 - [Solutions to Oracle-SQL-PL-SQL - A Brief Introduction](#book-solves)
 - [Oracle, Navicat, and SQLPlus Troubleshooting Guide](#oracle-navicat-and-sqlplus-troubleshooting-guide)
 - [University schema Installation Guide](/University%20Schema%20DDL/University%20Schema%20Install.pdf)
+  - [DDL](/University%20Schema%20DDL/DDL.sql)
+  - [Filling schema](/University%20Schema%20DDL/largeRelationsInsertFile.sql)
 - [Onlines](#onlines)
 - [Online Solves](#solutions-to-onlines-of-batch-20)
-
 - [Util](#util)
 
 ### Book Solves
